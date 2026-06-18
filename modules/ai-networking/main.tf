@@ -21,6 +21,8 @@ module "nsg_pe" {
   source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
   version = "~> 0.2"
 
+  enable_telemetry = false   # disables modtm_telemetry
+
   name                = "nsg-${var.location_code}-pe-${var.environment}"
   resource_group_name = var.resource_group_name
   location            = var.location
@@ -71,6 +73,8 @@ module "nsg_app" {
   source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
   version = "~> 0.2"
 
+  enable_telemetry = false   # disables modtm_telemetry
+
   name                = "nsg-${var.location_code}-app-${var.environment}"
   resource_group_name = var.resource_group_name
   location            = var.location
@@ -120,6 +124,8 @@ module "nsg_func" {
   source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
   version = "~> 0.2"
 
+  enable_telemetry = false   # disables modtm_telemetry
+
   name                = "nsg-${var.location_code}-func-${var.environment}"
   resource_group_name = var.resource_group_name
   location            = var.location
@@ -157,6 +163,8 @@ module "nsg_func" {
 module "nsg_data" {
   source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
   version = "~> 0.2"
+
+  enable_telemetry = false   # disables modtm_telemetry
 
   name                = "nsg-${var.location_code}-data-${var.environment}"
   resource_group_name = var.resource_group_name
@@ -206,6 +214,8 @@ module "nsg_data" {
 module "nsg_mgmt" {
   source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
   version = "~> 0.2"
+
+  enable_telemetry = false   # disables modtm_telemetry
 
   name                = "nsg-${var.location_code}-mgmt-${var.environment}"
   resource_group_name = var.resource_group_name
@@ -262,6 +272,8 @@ module "custom_nsgs" {
   source   = "Azure/avm-res-network-networksecuritygroup/azurerm"
   version  = "~> 0.2"
 
+  enable_telemetry = false   # disables modtm_telemetry
+
   name                = each.value.name
   resource_group_name = var.resource_group_name
   location            = var.location
@@ -294,9 +306,16 @@ locals {
     for k, s in var.subnets : k => {
       name                              = s.name
       address_prefixes                  = s.address_prefixes
-      network_security_group_id         = s.nsg_key != null ? local._nsg_ids[s.nsg_key] : null
+      network_security_group            = s.nsg_key != null ? { id = local._nsg_ids[s.nsg_key] } : null
       private_endpoint_network_policies = s.private_endpoint_network_policies
-      delegation                        = s.delegation
+      delegations = s.delegation != null ? [
+        for d in s.delegation : {
+          name = d.name
+          service_delegation = {
+            name = d.service_delegation.name
+          }
+        }
+      ] : null
     }
   }
 }
@@ -304,6 +323,8 @@ locals {
 module "spoke_vnet" {
   source  = "Azure/avm-res-network-virtualnetwork/azurerm"
   version = "~> 0.7"
+
+  enable_telemetry = false   # disables modtm_telemetry
 
   name          = var.vnet_name
   parent_id     = var.resource_group_id
@@ -316,12 +337,12 @@ module "spoke_vnet" {
   # Spoke → Hub peering (conditional)
   peerings = var.enable_hub_peering ? {
     to_hub = {
-      name                         = "peer-${var.location_code}-spoke-to-hub"
-      remote_virtual_network_id    = var.hub_vnet_id
-      allow_virtual_network_access = true
-      allow_forwarded_traffic      = true
-      allow_gateway_transit        = false
-      use_remote_gateways          = var.use_remote_gateways
+      name                               = "peer-${var.location_code}-spoke-to-hub"
+      remote_virtual_network_resource_id = var.hub_vnet_id
+      allow_virtual_network_access       = true
+      allow_forwarded_traffic            = true
+      allow_gateway_transit              = false
+      use_remote_gateways                = var.use_remote_gateways
     }
   } : {}
 }

@@ -25,7 +25,7 @@ output "ai_search_id" {
 
 output "ai_search_name" {
   description = "Name of the Azure AI Search service. Null when enable_ai_search = false."
-  value       = var.enable_ai_search ? module.ai_search[0].name : null
+  value       = var.enable_ai_search ? module.ai_search[0].resource.name : null
 }
 
 output "speech_service_id" {

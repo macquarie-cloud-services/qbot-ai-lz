@@ -5,54 +5,51 @@ Follows the [Azure Landing Zone conceptual architecture](https://learn.microsoft
 
 All AI services are secured with private endpoints, centralised private DNS zones, NSG micro-segmentation, and Azure Policy guardrails.
 
+> **Important:** Bing Search APIs are retired for new deployments (`ApiSetDisabledForCreation`). The code retains legacy Bing resource definitions for backward compatibility, but they should remain disabled in `feature_flags`.
+
 ---
 
 ## Architecture Overview
 
 ```
-                  ┌──────────────────────────────────────────┐
-                  │        platform/management               │
-                  │  Log Analytics Workspace + App Insights  │
-                  │  Azure Policy (AI Governance)            │
-                  └─────────────────┬────────────────────────┘
-                                    │ diagnostics
-          ┌─────────────────────────┼─────────────────────────┐
-          │                         │                         │
-┌─────────▼────────────┐   ┌────────▼────────────┐           │
-│ platform/connectivity│   │platform/connectivity│           │
-│  Hub — australiaeast │   │ Hub — australiasouth│           │
-│  10.100.0.0/16       │   │ east 10.101.0.0/16  │           │
-│  · Bastion           │   │ · Bastion           │           │
-│  · Firewall (opt)    │   │ · Firewall (opt)    │           │
-│  · VPN GW  (opt)     │   │ · VPN GW  (opt)     │           │
-│  · Private DNS Zones │   │ · Private DNS Zones │           │
-│    (all AI services) │   │   (all AI services) │           │
-└──────────┬───────────┘   └──────────┬──────────┘           │
-           │ VNet Peering              │ VNet Peering         │
-  ┌────────┴──────────┐      ┌────────┴──────────┐           │
-  │ landing-zones/ai  │      │ landing-zones/ai  │           │
-  │  Dev AUE Spoke    │      │  Dev AUSE Spoke   │           │
-  │  10.110.0.0/16    │      │  10.111.0.0/16    │           │
-  │  · AI Foundry Hub │      │  · AI Foundry Hub │           │
-  │  · AI Search      │      │  · AI Search      │           │
-  │  · CosmosDB       │      │  · CosmosDB       │           │
-  │  · Storage Acct   │      │  · Storage Acct   │           │
-  │  · Key Vault      │      │  · Key Vault      │           │
-  │  · App Services   │      │  · App Services   │           │
-  │    (WebApp/API/   │      │    (WebApp/API/   │           │
-  │     MemPipeline)  │      │     MemPipeline)  │           │
-  │  · Function App   │      │  · Function App   │           │
-  │  · Speech Svc     │      │  · Speech Svc     │           │
-  │  · Doc Intel      │      │  · Doc Intel      │           │
-  │  · Computer Vision│      │  · Computer Vision│           │
-  │  · Bing Search    │      │  · Bing Search    │           │
-  │  · SignalR        │      │  · SignalR        │           │
-  └───────────────────┘      └───────────────────┘
-  ┌───────────────────┐      ┌───────────────────┐
-  │ landing-zones/ai  │      │ landing-zones/ai  │
-  │  Prod AUE Spoke   │      │  Prod AUSE Spoke  │
-  │  10.120.0.0/16    │      │  10.121.0.0/16    │
-  └───────────────────┘      └───────────────────┘
+                     ┌──────────────────────────────────────────────┐
+                     │            platform/management               │
+                     │      Log Analytics + Application Insights    │
+                     │      Azure Policy (governance guardrails)   │
+                     └──────────────────────┬───────────────────────┘
+                                            │ diagnostics
+            ┌───────────────────────────────┼───────────────────────────────┐
+            │                               │                               │
+┌───────────▼─────────────────┐   ┌─────────▼──────────────────┐           │
+│ platform/connectivity       │   │ platform/connectivity      │           │
+│ Hub (australiaeast)         │   │ Hub (australiasoutheast)   │           │
+│ 10.100.0.0/16               │   │ 10.101.0.0/16              │           │
+│ · Bastion (optional)        │   │ · Bastion (optional)       │           │
+│ · Firewall (optional)       │   │ · Firewall (optional)      │           │
+│ · VPN Gateway (optional)    │   │ · VPN Gateway (optional)   │           │
+│ · Central Private DNS zones │   │ · Central Private DNS zones│           │
+└──────────────┬──────────────┘   └────────────┬───────────────┘           │
+               │ hub<->spoke peering            │ hub<->spoke peering       │
+      ┌────────┴─────────┐            ┌─────────┴────────┐                  │
+      │ landing-zones/ai │            │ landing-zones/ai │                  │
+      │ Dev AUE Spoke    │            │ Dev AUSE Spoke   │                  │
+      │ 10.110.0.0/16    │            │ 10.111.0.0/16    │                  │
+      │ · AI Foundry     │            │ · AI Foundry     │                  │
+      │ · AI Search      │            │ · AI Search      │                  │
+      │ · Data services  │            │ · Data services  │                  │
+      │   (KV/Storage/DB)│            │   (KV/Storage/DB)│                  │
+      │ · App services   │            │ · App services   │                  │
+      │ · Function App   │            │ · Function App   │                  │
+      │ · SignalR        │            │ · SignalR        │                  │
+      │ · Speech/Doc/CV* │            │ · Speech/Doc/CV* │                  │
+      └──────────────────┘            └──────────────────┘
+      ┌──────────────────┐            ┌──────────────────┐
+      │ landing-zones/ai │            │ landing-zones/ai │
+      │ Prod AUE Spoke   │            │ Prod AUSE Spoke  │
+      │ 10.120.0.0/16    │            │ 10.121.0.0/16    │
+      └──────────────────┘            └──────────────────┘
+
+* Optional by feature flags. Legacy Bing resources exist in code but remain disabled for new deployments.
 ```
 
 ---
@@ -64,7 +61,7 @@ qbot-ai-lz/
 ├── modules/
 │   ├── ai-networking/          # NSGs, AI spoke VNet, subnets, bi-directional hub peering
 │   ├── ai-services/            # AI Foundry Hub+Project, AI Search, Speech, Doc Intel,
-│   │                           #   Computer Vision, Bing Search, Bing Custom Search
+│   │                           #   Computer Vision, legacy Bing resource definitions
 │   ├── data-services/          # CosmosDB (NoSQL), Storage Account + private endpoints
 │   ├── app-services/           # App Service Plan, WebApp (Node.js), WebAPI (.NET),
 │   │                           #   Memory Pipeline (.NET), Azure Function (.NET)
@@ -351,7 +348,16 @@ terraform plan -var-file="prod-ause.tfvars"
 terraform apply -var-file="prod-ause.tfvars"
 ```
 
-> **Two-phase apply for landing zones:** On first apply the App Services managed identity does not exist yet, so RBAC assignments that reference it will fail. Set `app_service_principal_id = ""` for the first apply, then populate it with the `webapp_nodejs_principal_id` output and apply again.
+> **Two-phase apply for landing zones:** On first apply the App Services managed identity does not exist yet, so RBAC assignments that reference it will fail. Keep `app_service_principal_id = ""` for the first apply, then set it to the Web App managed identity principal/object ID and apply again.
+
+Example to fetch the principal ID after first apply:
+
+```bash
+az webapp identity show \
+  --name app-aue-qbot-webapp-dev \
+  --resource-group rg-aue-qbot-ai-dev \
+  --query principalId -o tsv
+```
 
 ---
 
@@ -401,12 +407,12 @@ When hub and spoke share a subscription, assign all roles to the same Terraform 
 | Cognitive Services (multi)   | `Azure/avm-res-cognitiveservices-account/azurerm`             | ~> 0.6   |
 | App Service Plan             | `Azure/avm-res-web-serverfarm/azurerm`                        | ~> 0.3   |
 | App Service (Web/API)        | `Azure/avm-res-web-site/azurerm`                              | ~> 0.12  |
-| SignalR Service              | `Azure/avm-res-signalrservice-signalr/azurerm`                | ~> 0.1   |
-| Bing Search / Custom Search  | `azapi_resource` (Microsoft.Bing/accounts)                    | azapi ~> 2.0 |
+| SignalR Service              | native `azurerm_signalr_service` + `azurerm_private_endpoint` | n/a      |
+| Bing Search / Custom Search  | `azapi_resource` (Microsoft.Bing/accounts, legacy/retired)    | azapi ~> 2.0 |
 
 ## Feature Flags
 
-Every module exposes `enable_*` boolean variables (default `true`, except Bing which defaults to `false`) so individual services can be switched off per environment without removing tfvars entries. All flags are wired through `landing-zones/ai/variables.tf` → `landing-zones/ai/main.tf` → the respective child module.
+Feature flags are exposed via the `feature_flags` object in `landing-zones/ai/variables.tf`. Each field is optional and defaults are defined in code (not all are `true`). Flags are wired through `landing-zones/ai/variables.tf` → `landing-zones/ai/main.tf` → child modules.
 
 ### platform/connectivity
 
@@ -431,13 +437,13 @@ The `subnets` map variable (replacing individual `subnet_*_prefix` variables) co
 
 | Variable                      | Default | Description                                              |
 |-------------------------------|---------|----------------------------------------------------------|
-| `enable_ai_foundry`           | `true`  | AI Foundry Hub + Project (incl. dedicated KV & Storage)  |
-| `enable_ai_search`            | `true`  | Azure AI Search service                                  |
-| `enable_speech`               | `true`  | Azure AI Speech Service                                  |
-| `enable_document_intelligence`| `true`  | Document Intelligence (Form Recognizer)                  |
-| `enable_computer_vision`      | `true`  | Computer Vision / Image Analysis                         |
-| `enable_bing_search`          | `false` | Bing Search (Grounding) — disabled by default            |
-| `enable_bing_custom_search`   | `false` | Bing Custom Search — disabled by default                 |
+| `enable_ai_foundry`           | `false` | AI Foundry Hub + Project (incl. dedicated KV & Storage)  |
+| `enable_ai_search`            | `false` | Azure AI Search service                                  |
+| `enable_speech`               | `false` | Azure AI Speech Service                                  |
+| `enable_document_intelligence`| `false` | Document Intelligence (Form Recognizer)                  |
+| `enable_computer_vision`      | `false` | Computer Vision / Image Analysis                         |
+| `enable_bing_search`          | `false` | Legacy Bing Search (Grounding); retired for new deployments |
+| `enable_bing_custom_search`   | `false` | Legacy Bing Custom Search; retired for new deployments   |
 
 ### landing-zones/ai — data-services module
 
@@ -445,7 +451,7 @@ The `subnets` map variable (replacing individual `subnet_*_prefix` variables) co
 |-------------------------|---------|-----------------------------------------------------|
 | `enable_key_vault`      | `true`  | Deploy the Key Vault instance                       |
 | `enable_storage_account`| `true`  | Deploy the shared Storage Account                   |
-| `enable_cosmosdb`       | `true`  | Deploy Cosmos DB account, database, and containers  |
+| `enable_cosmosdb`       | `false` | Deploy Cosmos DB account, database, and containers  |
 
 ### landing-zones/ai — app-services module
 
@@ -453,29 +459,36 @@ The `subnets` map variable (replacing individual `subnet_*_prefix` variables) co
 |-------------------------|---------|-----------------------------------------------------------------|
 | `enable_webapp_nodejs`  | `true`  | Node.js WebApp (chat frontend / orchestration)                  |
 | `enable_webapi_dotnet`  | `true`  | .NET WebAPI (REST backend)                                      |
-| `enable_memory_pipeline`| `true`  | .NET Memory Pipeline background service                         |
-| `enable_function_app`   | `true`  | .NET Function App + its dedicated storage account               |
+| `enable_memory_pipeline`| `false` | .NET Memory Pipeline background service                         |
+| `enable_function_app`   | `false` | .NET Function App + its dedicated storage account               |
 
 ### landing-zones/ai — realtime-services module
 
 | Variable         | Default | Description                         |
 |------------------|---------|-------------------------------------|
-| `enable_signalr` | `true`  | Deploy the Azure SignalR Service     |
+| `enable_signalr` | `false` | Deploy the Azure SignalR Service     |
+| `store_signalr_secret_in_key_vault` | `true` | Write SignalR connection string to Key Vault; set `false` when Terraform cannot reach the vault data plane (private-only vault from non-private runner) |
 
 ### Example: environment-specific overrides
 
 ```hcl
 # prod-aue.tfvars — disable services not needed in production
-enable_bing_search        = false  # not approved for prod data
-enable_bing_custom_search = false
-enable_memory_pipeline    = false  # handled by an external pipeline
+feature_flags = {
+  enable_bing_search        = false  # retired + not approved for prod data
+  enable_bing_custom_search = false  # retired
+  enable_memory_pipeline    = false  # handled by an external pipeline
+}
 ```
 
 ```hcl
-# dev-aue.tfvars — disable expensive services in dev
-enable_ai_foundry   = true   # keep for testing
-enable_hub_peering  = false  # standalone dev environment, no hub required
-enable_cosmosdb     = true
+# dev-aue.tfvars — private-only Key Vault with non-private Terraform runner
+feature_flags = {
+  enable_ai_foundry                  = true
+  enable_hub_peering                 = true
+  enable_cosmosdb                    = true
+  enable_signalr                     = true
+  store_signalr_secret_in_key_vault = false
+}
 ```
 
 Outputs from disabled services return `null` and downstream `app_settings` entries that reference them (e.g. `AI_SEARCH_ENDPOINT`) are set to an empty string, keeping the app configuration valid.

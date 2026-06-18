@@ -10,7 +10,7 @@ output "key_vault_uri" {
 
 output "storage_account_id" {
   description = "Resource ID of the Storage Account. Null when enable_storage_account = false."
-  value       = var.enable_storage_account ? module.storage_account[0].id : null
+  value       = var.enable_storage_account ? module.storage_account[0].resource_id : null
 }
 
 output "storage_account_name" {

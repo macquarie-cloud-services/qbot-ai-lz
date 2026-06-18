@@ -30,6 +30,8 @@ module "key_vault" {
   source  = "Azure/avm-res-keyvault-vault/azurerm"
   version = "~> 0.9"
 
+  enable_telemetry = false   # disables modtm_telemetry
+
   name                = var.key_vault_name
   resource_group_name = var.resource_group_name
   location            = var.location
@@ -85,6 +87,8 @@ module "storage_account" {
   source  = "Azure/avm-res-storage-storageaccount/azurerm"
   version = "~> 0.4"
 
+  enable_telemetry = false   # disables modtm_telemetry
+
   name      = var.storage_account_name
   parent_id = var.resource_group_id
   location  = var.location
@@ -126,7 +130,7 @@ module "storage_account" {
 # Grant App Services managed identity Storage Blob Data Contributor
 resource "azurerm_role_assignment" "app_identity_storage_blob" {
   count                = var.app_service_principal_id != "" && var.enable_storage_account ? 1 : 0
-  scope                = module.storage_account[0].id
+  scope                = module.storage_account[0].resource_id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = var.app_service_principal_id
 }
@@ -139,6 +143,8 @@ module "cosmosdb" {
   count   = var.enable_cosmosdb ? 1 : 0
   source  = "Azure/avm-res-documentdb-databaseaccount/azurerm"
   version = "~> 0.4"
+
+  enable_telemetry = false   # disables modtm_telemetry
 
   name                = var.cosmosdb_account_name
   resource_group_name = var.resource_group_name
@@ -157,7 +163,7 @@ module "cosmosdb" {
   # Security: disable public access, disable local auth (key-based)
   public_network_access_enabled         = false
   network_acl_bypass_for_azure_services = true
-  ip_range_filter                       = ""
+  ip_range_filter                       = []
 
   # RBAC data-plane — disable key-based authentication
   local_authentication_disabled = true
@@ -178,7 +184,10 @@ module "cosmosdb" {
   }
 
   diagnostic_settings = {
-    workspace = local.diagnostic_setting
+    workspace = {
+      workspace_resource_id = var.log_analytics_workspace_id
+      metric_categories     = ["Requests"]
+    }
   }
 }
 

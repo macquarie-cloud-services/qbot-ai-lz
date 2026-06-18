@@ -28,23 +28,23 @@ locals {
   })
 
   # All private DNS zones required for QBot AI services
-  # private_dns_zones = {
-  #   keyvault           = "privatelink.vaultcore.azure.net"
-  #   blob               = "privatelink.blob.core.windows.net"
-  #   file               = "privatelink.file.core.windows.net"
-  #   web                = "privatelink.azurewebsites.net"
-  #   cosmosdb           = "privatelink.documents.azure.com"
-  #   search             = "privatelink.search.windows.net"
-  #   cognitive_services = "privatelink.cognitiveservices.azure.com"
-  #   openai             = "privatelink.openai.azure.com"
-  #   aml_api            = "privatelink.api.azureml.ms"
-  #   aml_notebooks      = "privatelink.notebooks.azure.net"
-  #   signalr            = "privatelink.service.signalr.net"
-  #   monitor            = "privatelink.monitor.azure.com"
-  #   oms                = "privatelink.oms.opinsights.azure.com"
-  #   ods                = "privatelink.ods.opinsights.azure.com"
-  #   automation         = "privatelink.agentsvc.azure-automation.net"
-  # }
+  private_dns_zones = {
+    keyvault           = "privatelink.vaultcore.azure.net"
+    blob               = "privatelink.blob.core.windows.net"
+    file               = "privatelink.file.core.windows.net"
+    web                = "privatelink.azurewebsites.net"
+    cosmosdb           = "privatelink.documents.azure.com"
+    search             = "privatelink.search.windows.net"
+    cognitive_services = "privatelink.cognitiveservices.azure.com"
+    openai             = "privatelink.openai.azure.com"
+    aml_api            = "privatelink.api.azureml.ms"
+    aml_notebooks      = "privatelink.notebooks.azure.net"
+    signalr            = "privatelink.service.signalr.net"
+    monitor            = "privatelink.monitor.azure.com"
+    oms                = "privatelink.oms.opinsights.azure.com"
+    ods                = "privatelink.ods.opinsights.azure.com"
+    automation         = "privatelink.agentsvc.azure-automation.net"
+  }
 
   # Map of nsg_key → resource ID from the custom NSG module instances.
   # Used to attach NSGs to hub subnets via the nsg_key field in var.subnets.
@@ -69,6 +69,8 @@ module "resource_group_hub" {
   source  = "Azure/avm-res-resources-resourcegroup/azurerm"
   version = "~> 0.2"
 
+  # enable_telemetry = false   # disables modtm_telemetry
+
   name     = "rg-${var.location_code}-qbot-hub"
   location = var.location
   tags     = local.common_tags
@@ -85,6 +87,8 @@ module "hub_nsgs" {
   source   = "Azure/avm-res-network-networksecuritygroup/azurerm"
   version  = "~> 0.2"
 
+  # enable_telemetry = false   # disables modtm_telemetry
+
   name                = each.value.name
   resource_group_name = module.resource_group_hub.name
   location            = var.location
@@ -100,6 +104,8 @@ module "hub_nsgs" {
 module "hub_vnet" {
   source  = "Azure/avm-res-network-virtualnetwork/azurerm"
   version = "~> 0.7"
+
+  # enable_telemetry = false   # disables modtm_telemetry
 
   name          = "vnet-${var.location_code}-qbot-hub"
   parent_id     = module.resource_group_hub.resource_id
@@ -119,6 +125,8 @@ module "bastion" {
   count   = var.enable_bastion ? 1 : 0
   source  = "Azure/avm-res-network-bastionhost/azurerm"
   version = "~> 0.3"
+
+  # enable_telemetry = false   # disables modtm_telemetry
 
   name      = "bas-${var.location_code}-hub"
   parent_id = module.resource_group_hub.resource_id
@@ -141,6 +149,8 @@ module "firewall_policy" {
   source  = "Azure/avm-res-network-firewallpolicy/azurerm"
   version = "~> 0.3"
 
+  # enable_telemetry = false   # disables modtm_telemetry
+
   name                = "afwp-${var.location_code}-hub"
   resource_group_name = module.resource_group_hub.name
   location            = var.location
@@ -157,6 +167,8 @@ module "firewall_pip" {
   source  = "Azure/avm-res-network-publicipaddress/azurerm"
   version = "~> 0.1"
 
+  # enable_telemetry = false   # disables modtm_telemetry
+  
   name                = "pip-${var.location_code}-afw-hub"
   resource_group_name = module.resource_group_hub.name
   location            = var.location
@@ -175,6 +187,8 @@ module "firewall" {
   count   = var.enable_firewall ? 1 : 0
   source  = "Azure/avm-res-network-azurefirewall/azurerm"
   version = "~> 0.3"
+
+  # enable_telemetry = false   # disables modtm_telemetry
 
   name                = "afw-${var.location_code}-hub"
   resource_group_name = module.resource_group_hub.name
@@ -202,6 +216,8 @@ module "vpn_gateway" {
   count   = var.enable_vpn_gateway ? 1 : 0
   source  = "Azure/avm-ptn-vnetgateway/azurerm"
   version = "~> 0.10"
+  
+  # enable_telemetry = false   # disables modtm_telemetry
 
   name      = "vgw-${var.location_code}-hub"
   parent_id = module.resource_group_hub.resource_id
@@ -225,20 +241,22 @@ module "vpn_gateway" {
 # Landing zones pass these zone IDs into their private endpoint config
 # so DNS resolves correctly from all peered spokes.
 #--------------------------------------------------------------
-# module "private_dns_zones" {
-#   for_each = local.private_dns_zones
-#   source   = "Azure/avm-res-network-privatednszone/azurerm"
-#   version  = "~> 0.3"
+module "private_dns_zones" {
+  for_each = local.private_dns_zones
+  source   = "Azure/avm-res-network-privatednszone/azurerm"
+  version  = "~> 0.3"
 
-#   domain_name = each.value
-#   parent_id   = module.resource_group_hub.resource_id
-#   tags        = local.common_tags
+  enable_telemetry = false   # disables modtm_telemetry
 
-#   virtual_network_links = {
-#     hub = {
-#       vnetlinkname     = "vnetlink-hub-${each.key}"
-#       vnetid           = module.hub_vnet.resource_id
-#       autoregistration = false
-#     }
-#   }
-# }
+  domain_name = each.value
+  parent_id   = module.resource_group_hub.resource_id
+  tags        = local.common_tags
+
+  virtual_network_links = {
+    hub = {
+      vnetlinkname     = "vnetlink-hub-${each.key}"
+      vnetid           = module.hub_vnet.resource_id
+      autoregistration = false
+    } 
+  }
+}

@@ -41,6 +41,8 @@ module "ai_foundry_storage" {
   source  = "Azure/avm-res-storage-storageaccount/azurerm"
   version = "~> 0.4"
 
+  enable_telemetry = false   # disables modtm_telemetry
+  
   name      = var.ai_foundry_storage_name
   parent_id = var.resource_group_id
   location  = var.location
@@ -84,6 +86,8 @@ module "ai_foundry_keyvault" {
   source  = "Azure/avm-res-keyvault-vault/azurerm"
   version = "~> 0.9"
 
+  enable_telemetry = false   # disables modtm_telemetry
+
   name                = var.ai_foundry_keyvault_name
   resource_group_name = var.resource_group_name
   location            = var.location
@@ -123,7 +127,7 @@ resource "azurerm_ai_foundry" "hub" {
   location            = var.location
   tags                = var.tags
 
-  storage_account_id = module.ai_foundry_storage[count.index].id
+  storage_account_id = module.ai_foundry_storage[count.index].resource_id
   key_vault_id       = module.ai_foundry_keyvault[count.index].resource_id
 
   identity {
@@ -167,7 +171,7 @@ resource "azurerm_private_endpoint" "ai_foundry_api" {
     name                           = "psc-${var.ai_foundry_hub_name}-api"
     private_connection_resource_id = azurerm_ai_foundry.hub[count.index].id
     is_manual_connection           = false
-    subresource_names              = ["Hub"]
+    subresource_names              = ["amlworkspace"]
   }
 
   private_dns_zone_group {
@@ -186,6 +190,8 @@ module "ai_search" {
   count   = var.enable_ai_search ? 1 : 0
   source  = "Azure/avm-res-search-searchservice/azurerm"
   version = "~> 0.1"
+
+  enable_telemetry = false   # disables modtm_telemetry
 
   name                = var.ai_search_name
   resource_group_name = var.resource_group_name
@@ -221,6 +227,8 @@ module "speech_service" {
   count   = var.enable_speech ? 1 : 0
   source  = "Azure/avm-res-cognitiveservices-account/azurerm"
   version = "~> 0.6"
+
+  enable_telemetry = false   # disables modtm_telemetry
 
   name      = var.speech_service_name
   parent_id = var.resource_group_id
@@ -260,6 +268,8 @@ module "document_intelligence" {
   source  = "Azure/avm-res-cognitiveservices-account/azurerm"
   version = "~> 0.6"
 
+  enable_telemetry = false   # disables modtm_telemetry
+
   name      = var.doc_intelligence_name
   parent_id = var.resource_group_id
   location  = var.location
@@ -298,6 +308,8 @@ module "computer_vision" {
   source  = "Azure/avm-res-cognitiveservices-account/azurerm"
   version = "~> 0.6"
 
+  enable_telemetry = false   # disables modtm_telemetry
+
   name      = var.computer_vision_name
   parent_id = var.resource_group_id
   location  = var.location
@@ -335,19 +347,20 @@ module "computer_vision" {
 # grounding for Azure AI Foundry and Azure OpenAI.
 #================================================================
 resource "azapi_resource" "bing_search" {
-  count     = var.enable_bing_search ? 1 : 0
-  type      = "Microsoft.Bing/accounts@2020-06-10"
+  count                     = var.enable_bing_search ? 1 : 0
+  type                      = "Microsoft.Bing/accounts@2020-06-10"
+  schema_validation_enabled = false
   name      = var.bing_search_name
   parent_id = var.resource_group_id
   location  = "global"
   tags      = var.tags
 
-  body = jsonencode({
+  body = {
     kind = "Bing.Grounding"
     sku = {
       name = var.bing_search_sku
     }
-  })
+  }
 
   response_export_values = ["*"]
 }
@@ -356,19 +369,20 @@ resource "azapi_resource" "bing_search" {
 # BING CUSTOM SEARCH (Grounding with Bing Custom Search)
 #================================================================
 resource "azapi_resource" "bing_custom_search" {
-  count     = var.enable_bing_custom_search ? 1 : 0
-  type      = "Microsoft.Bing/accounts@2020-06-10"
+  count                     = var.enable_bing_custom_search ? 1 : 0
+  type                      = "Microsoft.Bing/accounts@2020-06-10"
+  schema_validation_enabled = false
   name      = var.bing_custom_search_name
   parent_id = var.resource_group_id
   location  = "global"
   tags      = var.tags
 
-  body = jsonencode({
+  body = {
     kind = "Bing.CustomSearch"
     sku = {
       name = var.bing_custom_search_sku
     }
-  })
+  }
 
   response_export_values = ["*"]
 }

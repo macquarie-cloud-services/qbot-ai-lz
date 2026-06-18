@@ -36,6 +36,8 @@ module "app_service_plan" {
   source  = "Azure/avm-res-web-serverfarm/azurerm"
   version = "~> 0.3"
 
+  enable_telemetry = false   # disables modtm_telemetry
+
   name                = var.app_service_plan_name
   resource_group_name = var.resource_group_name
   location            = var.location
@@ -55,6 +57,8 @@ module "webapp_nodejs" {
   count   = var.enable_webapp_nodejs ? 1 : 0
   source  = "Azure/avm-res-web-site/azurerm"
   version = "~> 0.12"
+
+  enable_telemetry = false   # disables modtm_telemetry
 
   name      = var.webapp_nodejs_name
   parent_id = var.resource_group_id
@@ -117,6 +121,8 @@ module "webapi_dotnet" {
   count   = var.enable_webapi_dotnet ? 1 : 0
   source  = "Azure/avm-res-web-site/azurerm"
   version = "~> 0.12"
+
+  enable_telemetry = false   # disables modtm_telemetry
 
   name      = var.webapi_dotnet_name
   parent_id = var.resource_group_id
@@ -184,6 +190,8 @@ module "memory_pipeline_dotnet" {
   source  = "Azure/avm-res-web-site/azurerm"
   version = "~> 0.12"
 
+  enable_telemetry = false   # disables modtm_telemetry
+
   name      = var.memory_pipeline_name
   parent_id = var.resource_group_id
   location  = var.location
@@ -245,6 +253,8 @@ module "func_storage" {
   source  = "Azure/avm-res-storage-storageaccount/azurerm"
   version = "~> 0.4"
 
+  enable_telemetry = false   # disables modtm_telemetry
+
   name      = var.func_storage_name
   parent_id = var.resource_group_id
   location  = var.location
@@ -279,6 +289,8 @@ module "function_app" {
   source  = "Azure/avm-res-web-site/azurerm"
   version = "~> 0.12"
 
+  enable_telemetry = false   # disables modtm_telemetry
+  
   name      = var.function_app_name
   parent_id = var.resource_group_id
   location  = var.location
@@ -335,7 +347,7 @@ module "function_app" {
 # Grant Function App managed identity Storage Blob Data Owner on its own storage account
 resource "azurerm_role_assignment" "func_storage_blob_owner" {
   count                = var.enable_function_app ? 1 : 0
-  scope                = module.func_storage[0].id
+  scope                = module.func_storage[0].resource_id
   role_definition_name = "Storage Blob Data Owner"
-  principal_id         = module.function_app[0].identity[0].principal_id
+  principal_id         = module.function_app[0].system_assigned_mi_principal_id
 }
