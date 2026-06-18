@@ -23,7 +23,7 @@ variable "location_code" {
 }
 
 variable "environment" {
-  description = "Environment name (dev, prod)"
+  description = "Environment name (dev, stg, prod)"
   type        = string
 }
 
@@ -417,108 +417,47 @@ variable "signalr_cors_origins" {
 
 #--------------------------------------------------------------
 # Feature Flags
-# Mirror the enable_* flags on each child module.
-# Defaults match the module defaults so nothing changes unless
-# a flag is explicitly set to false in a .tfvars file.
+#
+# Single object that controls which services are deployed in this
+# landing zone. All defaults are defined here — the authoritative
+# source of truth for the landing zone. Override specific flags in
+# the environment .tfvars file without touching module code.
+#
+# Usage in .tfvars:
+#   feature_flags = {
+#     enable_cosmosdb   = true
+#     enable_ai_foundry = true
+#   }
 #--------------------------------------------------------------
+variable "feature_flags" {
+  description = "Feature toggles controlling which services are deployed. All fields are optional — unset fields use the defaults defined here."
+  type = object({
+    # Networking
+    enable_hub_peering = optional(bool, true)
 
-# ai-networking
-variable "enable_hub_peering" {
-  description = "Establish hub-spoke peering and DNS zone links. Set false for isolated/standalone environments."
-  type        = bool
-  default     = true
-}
+    # Data services
+    enable_key_vault       = optional(bool, true)
+    enable_storage_account = optional(bool, true)
+    enable_cosmosdb        = optional(bool, false)
 
-# data-services
-variable "enable_key_vault" {
-  description = "Deploy the Key Vault instance."
-  type        = bool
-  default     = true
-}
+    # AI services
+    enable_ai_foundry            = optional(bool, false)
+    enable_ai_search             = optional(bool, false)
+    enable_speech                = optional(bool, false)
+    enable_document_intelligence = optional(bool, false)
+    enable_computer_vision       = optional(bool, false)
+    enable_bing_search           = optional(bool, false)
+    enable_bing_custom_search    = optional(bool, false)
 
-variable "enable_storage_account" {
-  description = "Deploy the shared Storage Account."
-  type        = bool
-  default     = true
-}
+    # App services
+    enable_webapp_nodejs   = optional(bool, true)
+    enable_webapi_dotnet   = optional(bool, true)
+    enable_memory_pipeline = optional(bool, false)
+    enable_function_app    = optional(bool, false)
 
-variable "enable_cosmosdb" {
-  description = "Deploy the Cosmos DB account, database and containers."
-  type        = bool
-  default     = true
-}
-
-# ai-services
-variable "enable_ai_foundry" {
-  description = "Deploy the Azure AI Foundry Hub and Project."
-  type        = bool
-  default     = true
-}
-
-variable "enable_ai_search" {
-  description = "Deploy the Azure AI Search service."
-  type        = bool
-  default     = true
-}
-
-variable "enable_speech" {
-  description = "Deploy the Azure AI Speech Service."
-  type        = bool
-  default     = true
-}
-
-variable "enable_document_intelligence" {
-  description = "Deploy the Azure AI Document Intelligence service."
-  type        = bool
-  default     = true
-}
-
-variable "enable_computer_vision" {
-  description = "Deploy the Azure AI Computer Vision service."
-  type        = bool
-  default     = true
-}
-
-variable "enable_bing_search" {
-  description = "Deploy the Bing Search (Grounding) resource."
-  type        = bool
-  default     = false
-}
-
-variable "enable_bing_custom_search" {
-  description = "Deploy the Bing Custom Search resource."
-  type        = bool
-  default     = false
-}
-
-# app-services
-variable "enable_webapp_nodejs" {
-  description = "Deploy the Node.js WebApp."
-  type        = bool
-  default     = true
-}
-
-variable "enable_webapi_dotnet" {
-  description = "Deploy the .NET WebAPI."
-  type        = bool
-  default     = true
-}
-
-variable "enable_memory_pipeline" {
-  description = "Deploy the .NET Memory Pipeline background service."
-  type        = bool
-  default     = true
-}
-
-variable "enable_function_app" {
-  description = "Deploy the .NET Function App and its storage account."
-  type        = bool
-  default     = true
-}
-
-# realtime-services
-variable "enable_signalr" {
-  description = "Deploy the Azure SignalR Service."
-  type        = bool
-  default     = true
+    # Realtime services
+    enable_signalr                      = optional(bool, false)
+    store_signalr_secret_in_key_vault  = optional(bool, true)
+  })
+  default = {}
 }

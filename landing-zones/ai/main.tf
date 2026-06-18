@@ -89,6 +89,8 @@ module "resource_group" {
   source  = "Azure/avm-res-resources-resourcegroup/azurerm"
   version = "~> 0.2"
 
+  enable_telemetry = false   # disables modtm_telemetry
+
   name     = var.resource_group_name
   location = var.location
   tags     = local.common_tags
@@ -122,7 +124,7 @@ module "ai_networking" {
   hub_vnet_name           = local.hub_vnet_name
   hub_resource_group_name = local.hub_resource_group_name
   use_remote_gateways     = var.use_remote_gateways
-  enable_hub_peering      = var.enable_hub_peering
+  enable_hub_peering      = var.feature_flags.enable_hub_peering
 
   private_dns_zone_ids = local.dns_zone_name_map
 
@@ -170,9 +172,9 @@ module "data_services" {
   cosmosdb_memory_ttl_seconds         = var.cosmosdb_memory_ttl_seconds
 
   # Feature flags
-  enable_key_vault       = var.enable_key_vault
-  enable_storage_account = var.enable_storage_account
-  enable_cosmosdb        = var.enable_cosmosdb
+  enable_key_vault       = var.feature_flags.enable_key_vault
+  enable_storage_account = var.feature_flags.enable_storage_account
+  enable_cosmosdb        = var.feature_flags.enable_cosmosdb
 
   tags = local.common_tags
 }
@@ -229,13 +231,13 @@ module "ai_services" {
   bing_custom_search_sku  = var.bing_custom_search_sku
 
   # Feature flags
-  enable_ai_foundry            = var.enable_ai_foundry
-  enable_ai_search             = var.enable_ai_search
-  enable_speech                = var.enable_speech
-  enable_document_intelligence = var.enable_document_intelligence
-  enable_computer_vision       = var.enable_computer_vision
-  enable_bing_search           = var.enable_bing_search
-  enable_bing_custom_search    = var.enable_bing_custom_search
+  enable_ai_foundry            = var.feature_flags.enable_ai_foundry
+  enable_ai_search             = var.feature_flags.enable_ai_search
+  enable_speech                = var.feature_flags.enable_speech
+  enable_document_intelligence = var.feature_flags.enable_document_intelligence
+  enable_computer_vision       = var.feature_flags.enable_computer_vision
+  enable_bing_search           = var.feature_flags.enable_bing_search
+  enable_bing_custom_search    = var.feature_flags.enable_bing_custom_search
 
   tags = local.common_tags
 }
@@ -281,7 +283,7 @@ module "app_services" {
   cosmosdb_endpoint              = module.data_services.cosmosdb_endpoint
   cosmosdb_database_name         = module.data_services.cosmosdb_database_name
   # Null-safe: ai_search_name is null when enable_ai_search = false
-  ai_search_endpoint             = var.enable_ai_search ? "https://${module.ai_services.ai_search_name}.search.windows.net" : ""
+  ai_search_endpoint             = var.feature_flags.enable_ai_search ? "https://${module.ai_services.ai_search_name}.search.windows.net" : ""
   ai_foundry_endpoint            = "" # Set after AI Foundry deployment
   speech_endpoint                = module.ai_services.speech_service_endpoint
   doc_intelligence_endpoint      = module.ai_services.document_intelligence_endpoint
@@ -291,10 +293,10 @@ module "app_services" {
   webapi_cors_origins = var.webapi_cors_origins
 
   # Feature flags
-  enable_webapp_nodejs   = var.enable_webapp_nodejs
-  enable_webapi_dotnet   = var.enable_webapi_dotnet
-  enable_memory_pipeline = var.enable_memory_pipeline
-  enable_function_app    = var.enable_function_app
+  enable_webapp_nodejs   = var.feature_flags.enable_webapp_nodejs
+  enable_webapi_dotnet   = var.feature_flags.enable_webapi_dotnet
+  enable_memory_pipeline = var.feature_flags.enable_memory_pipeline
+  enable_function_app    = var.feature_flags.enable_function_app
 
   tags = local.common_tags
 }
@@ -313,7 +315,7 @@ module "realtime_services" {
   log_analytics_workspace_id  = local.log_analytics_workspace_id
 
   # Store connection string in Key Vault
-  key_vault_id = module.data_services.key_vault_id
+  key_vault_id = var.feature_flags.store_signalr_secret_in_key_vault ? module.data_services.key_vault_id : ""
 
   signalr_name         = var.signalr_name
   signalr_sku          = var.signalr_sku
@@ -321,7 +323,7 @@ module "realtime_services" {
   signalr_cors_origins = var.signalr_cors_origins
 
   # Feature flag
-  enable_signalr = var.enable_signalr
+  enable_signalr = var.feature_flags.enable_signalr
 
   tags = local.common_tags
 
