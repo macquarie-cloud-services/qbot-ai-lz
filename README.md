@@ -38,10 +38,12 @@ All AI services are secured with private endpoints, centralised private DNS zone
       │ · AI Search      │            │ · AI Search      │                  │
       │ · Data services  │            │ · Data services  │                  │
       │   (KV/Storage/DB)│            │   (KV/Storage/DB)│                  │
+      │ · App Gateway    │            │ · App Gateway    │                  │
+      │   (WAF_v2)       │            │   (WAF_v2)       │                  │
       │ · App services   │            │ · App services   │                  │
       │ · Function App   │            │ · Function App   │                  │
       │ · SignalR        │            │ · SignalR        │                  │
-      │ · Speech/Doc/CV* │            │ · Speech/Doc/CV* │                  │
+      │ · Speech/Doc/CV* │            │ · Speech/Doc/CV* │                  
       └──────────────────┘            └──────────────────┘
       ┌──────────────────┐            ┌──────────────────┐
       │ landing-zones/ai │            │ landing-zones/ai │
@@ -63,6 +65,7 @@ qbot-ai-lz/
 │   ├── ai-services/            # AI Foundry Hub+Project, AI Search, Speech, Doc Intel,
 │   │                           #   Computer Vision, legacy Bing resource definitions
 │   ├── data-services/          # CosmosDB (NoSQL), Storage Account + private endpoints
+│   ├── app-gateway/            # Spoke ingress: WAF_v2, TLS termination, path-based routing
 │   ├── app-services/           # App Service Plan, WebApp (Node.js), WebAPI (.NET),
 │   │                           #   Memory Pipeline (.NET), Azure Function (.NET)
 │   └── realtime-services/      # SignalR Service + private endpoint
@@ -111,6 +114,7 @@ The six default subnets are defined in each `.tfvars` file via the `subnets` map
 | `func`   | `snet-aue-ai-func`       | 10.110.2.0/24      | `func`  | Function App VNet integration (delegated)    |
 | `data`   | `snet-aue-ai-data`       | 10.110.3.0/24      | `data`  | Data-tier (CosmosDB, Storage)                |
 | `svc`    | `snet-aue-ai-svc`        | 10.110.4.0/24      | `pe`    | AI cognitive services traffic                |
+| `agw`    | `snet-aue-ai-agw`        | 10.110.5.0/24      | `agw`   | Application Gateway (WAF_v2) dedicated subnet |
 | `pe`     | `snet-aue-ai-pe`         | 10.110.10.0/23     | `pe`    | Private endpoints — all services             |
 | `mgmt`   | `snet-aue-ai-mgmt`       | 10.110.20.0/24     | `mgmt`  | Jumpbox / management VMs                     |
 
@@ -405,6 +409,8 @@ When hub and spoke share a subscription, assign all roles to the same Terraform 
 | AI Search                    | `Azure/avm-res-search-searchservice/azurerm`                  | ~> 0.1   |
 | AI Foundry (ML Workspace)    | `Azure/avm-res-machinelearningservices-workspace/azurerm`     | ~> 0.1   |
 | Cognitive Services (multi)   | `Azure/avm-res-cognitiveservices-account/azurerm`             | ~> 0.6   |
+| Application Gateway          | native `azurerm_application_gateway`                           | n/a      |
+| WAF Policy                   | native `azurerm_web_application_firewall_policy`               | n/a      |
 | App Service Plan             | `Azure/avm-res-web-serverfarm/azurerm`                        | ~> 0.3   |
 | App Service (Web/API)        | `Azure/avm-res-web-site/azurerm`                              | ~> 0.12  |
 | SignalR Service              | native `azurerm_signalr_service` + `azurerm_private_endpoint` | n/a      |
@@ -469,6 +475,15 @@ The `subnets` map variable (replacing individual `subnet_*_prefix` variables) co
 | `enable_signalr` | `false` | Deploy the Azure SignalR Service     |
 | `store_signalr_secret_in_key_vault` | `true` | Write SignalR connection string to Key Vault; set `false` when Terraform cannot reach the vault data plane (private-only vault from non-private runner) |
 
+### landing-zones/ai — app-gateway module
+
+| Variable / Flag | Default | Description |
+|-----------------|---------|-------------|
+| `enable_app_gateway` | `false` | Deploy spoke-level Application Gateway (WAF_v2) as HTTPS entry point |
+| `agw_waf_mode` | `Detection` | WAF mode (`Detection` for dev rollout, `Prevention` for prod) |
+| `agw_ssl_cert_key_vault_secret_id` | `""` | Key Vault TLS certificate secret URI for HTTPS listener |
+| `agw_capacity` / `agw_autoscale_*` | `1` / `null` | Fixed capacity for dev or autoscale for production |
+
 ### Example: environment-specific overrides
 
 ```hcl
@@ -514,6 +529,7 @@ Outputs from disabled services return `null` and downstream `app_settings` entri
 | Multi-region                    | Separate tfvars per region; same config code             | Reuses all modules; region-specific tfvars handle naming/CIDR          |
 | Optional hub services           | `enable_firewall`, `enable_bastion`, `enable_vpn_gateway`| Cost control in dev/test; enable selectively in prod                   |
 | Optional spoke services         | `enable_*` flags on every module service                 | Per-environment cost control; enable only what each env needs          |
+| Spoke ingress                   | Application Gateway (WAF_v2) in each spoke               | Security isolation and independent WAF policy tuning per workload       |
 | Hub VNet subnets                | `subnets` map variable (replacing individual prefix vars)| Add/remove subnets per env without module changes; same pattern as spoke|
 | Spoke VNet subnets              | `subnets` map variable with `nsg_key` field              | Extendable without module changes; NSG resolved from key inside module |
 | NSG extensibility (hub & spoke) | `network_security_groups` map + `nsg_key` on subnets     | Define any number of custom NSGs in tfvars; merged with built-in NSGs at plan time |
@@ -524,6 +540,8 @@ Outputs from disabled services return `null` and downstream `app_settings` entri
 
 ### Network Security
 - All AI services exposed only via private endpoints — no public network access
+- Application Gateway (WAF_v2) is implemented in each spoke as the HTTPS ingress tier with path-based routing to app services
+- WAF policy enforces OWASP managed rules and bot protection for north-south traffic before it reaches backend services
 - NSG micro-segmentation on every subnet with explicit deny-all as default
 - Azure Firewall (optional, recommended for prod) for east-west inspection
 - Service endpoints disabled in favour of private endpoints (more secure)

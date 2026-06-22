@@ -49,8 +49,8 @@ module "log_analytics" {
 
   log_analytics_workspace_sku                        = var.log_analytics_sku
   log_analytics_workspace_retention_in_days          = var.log_analytics_retention_days
-  log_analytics_workspace_internet_ingestion_enabled = true
-  log_analytics_workspace_internet_query_enabled     = true
+  log_analytics_workspace_internet_ingestion_enabled = false
+  log_analytics_workspace_internet_query_enabled     = false
 }
 
 #--------------------------------------------------------------

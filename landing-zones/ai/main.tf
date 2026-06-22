@@ -329,3 +329,54 @@ module "realtime_services" {
 
   depends_on = [module.data_services]
 }
+
+#--------------------------------------------------------------
+# Application Gateway (WAF_v2)
+# Entry point for all HTTPS traffic to app services.
+# TLS termination, HTTP→HTTPS redirect, path-based routing.
+# WAF Security pillar: OWASP 3.2, Bot Manager, Prevention mode.
+#--------------------------------------------------------------
+module "app_gateway" {
+  count  = var.feature_flags.enable_app_gateway ? 1 : 0
+  source = "../../modules/app-gateway"
+
+  resource_group_name = module.resource_group.name
+  location            = var.location
+
+  # Dedicated /24 AGW subnet — must be in subnets map with key "agw"
+  subnet_id = module.ai_networking.subnet_ids["agw"]
+
+  # Naming
+  app_gateway_name = var.app_gateway_name
+  waf_policy_name  = var.waf_policy_name
+  public_ip_name   = var.agw_public_ip_name
+
+  # WAF
+  waf_mode = var.agw_waf_mode
+
+  # Capacity / autoscaling
+  capacity               = var.agw_capacity
+  autoscale_min_capacity = var.agw_autoscale_min
+  autoscale_max_capacity = var.agw_autoscale_max
+
+  # Zone redundancy
+  zones = var.agw_zones
+
+  # SSL certificate — provide PFX base64 or Key Vault secret ID
+  ssl_cert_pfx_b64             = var.agw_ssl_cert_pfx_b64
+  ssl_cert_pfx_password        = var.agw_ssl_cert_pfx_password
+  ssl_cert_key_vault_secret_id = var.agw_ssl_cert_key_vault_secret_id
+  key_vault_id                 = var.agw_ssl_cert_key_vault_secret_id != "" ? module.data_services.key_vault_id : ""
+
+  # Backend FQDNs — constructed from known names (plan-time stable, no "known after apply")
+  webapp_fqdn        = "${var.webapp_nodejs_name}.azurewebsites.net"
+  webapi_fqdn        = "${var.webapi_dotnet_name}.azurewebsites.net"
+  webapi_health_path = var.agw_webapi_health_path
+
+  # Observability
+  log_analytics_workspace_id = local.log_analytics_workspace_id
+
+  tags = local.common_tags
+
+  depends_on = [module.app_services]
+}

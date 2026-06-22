@@ -416,6 +416,83 @@ variable "signalr_cors_origins" {
 }
 
 #--------------------------------------------------------------
+# Application Gateway
+#--------------------------------------------------------------
+variable "app_gateway_name" {
+  description = "Name for the Application Gateway"
+  type        = string
+  default     = ""
+}
+
+variable "waf_policy_name" {
+  description = "Name for the WAF policy resource"
+  type        = string
+  default     = ""
+}
+
+variable "agw_public_ip_name" {
+  description = "Name for the Application Gateway public IP"
+  type        = string
+  default     = ""
+}
+
+variable "agw_waf_mode" {
+  description = "WAF enforcement mode: 'Detection' (dev) or 'Prevention' (prod)"
+  type        = string
+  default     = "Detection"
+}
+
+variable "agw_capacity" {
+  description = "Fixed instance count for the App Gateway. Set to null to use autoscaling."
+  type        = number
+  default     = 1
+}
+
+variable "agw_autoscale_min" {
+  description = "Minimum instances for autoscaling. Requires agw_capacity = null."
+  type        = number
+  default     = null
+}
+
+variable "agw_autoscale_max" {
+  description = "Maximum instances for autoscaling."
+  type        = number
+  default     = 10
+}
+
+variable "agw_zones" {
+  description = "Availability zones for the App Gateway and its public IP. Use [] for regions without zones (e.g. australiasoutheast)."
+  type        = list(string)
+  default     = ["1", "2", "3"]
+}
+
+variable "agw_ssl_cert_pfx_b64" {
+  description = "Base64-encoded PFX certificate for the HTTPS listener. Use for self-signed or uploaded certs."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "agw_ssl_cert_pfx_password" {
+  description = "Password for the PFX certificate."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "agw_ssl_cert_key_vault_secret_id" {
+  description = "Unversioned Key Vault secret URI for the TLS certificate. When set, overrides agw_ssl_cert_pfx_b64."
+  type        = string
+  default     = ""
+}
+
+variable "agw_webapi_health_path" {
+  description = "Health probe path for the WebAPI backend."
+  type        = string
+  default     = "/health"
+}
+
+#--------------------------------------------------------------
 # Feature Flags
 #
 # Single object that controls which services are deployed in this
@@ -458,6 +535,9 @@ variable "feature_flags" {
     # Realtime services
     enable_signalr                      = optional(bool, false)
     store_signalr_secret_in_key_vault  = optional(bool, true)
+
+    # Application Gateway (WAF_v2)
+    enable_app_gateway = optional(bool, false)
   })
   default = {}
 }

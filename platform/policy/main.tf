@@ -332,15 +332,17 @@ resource "azurerm_policy_set_definition" "qbot_ai_security_baseline" {
   }
 
   # Built-in: Require managed identity on App Services
+  # https://www.azadvertizer.net/azpolicyadvertizer/2b9ad585-36bc-4615-b300-fd4435808332.html; Default effect is AuditIfNotExists, can be overridden to Disabled if desired.
   policy_definition_reference {
     policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/2b9ad585-36bc-4615-b300-fd4435808332"
     reference_id         = "require-app-service-managed-identity"
   }
 
   # Built-in: Azure Cosmos DB should use customer-managed keys
+  # https://www.azadvertizer.net/azpolicyadvertizer/1f905d99-2ab7-462c-a6b0-f709acca6c8f.html; Default effect is Audit, can be overridden to Deny after proper testing.
   policy_definition_reference {
     policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/1f905d99-2ab7-462c-a6b0-f709acca6c8f"
-    reference_id         = "cosmosdb-customer-managed-keys-audit"
+    reference_id         = "cosmosdb-customer-managed-keys-audit" 
   }
 }
 
