@@ -153,12 +153,24 @@ variable "key_vault_name" {
   type        = string
 }
 
+variable "key_vault_sku" {
+  description = "SKU for the Key Vault (standard, premium)"
+  type        = string
+  default     = "standard"
+}
+
 #--------------------------------------------------------------
 # Storage Account
 #--------------------------------------------------------------
 variable "storage_account_name" {
   description = "Name for the main Storage Account"
   type        = string
+}
+
+variable "storage_account_tier" {
+  description = "Performance tier for the Storage Account (Standard, Premium)"
+  type        = string
+  default     = "Standard"
 }
 
 variable "storage_replication_type" {
@@ -187,6 +199,36 @@ variable "cosmosdb_consistency_level" {
   default     = "Session"
 }
 
+variable "cosmosdb_offer_type" {
+  description = "Cosmos DB offer type"
+  type        = string
+  default     = "Standard"
+}
+
+variable "cosmosdb_max_staleness_prefix" {
+  description = "Max staleness prefix for BoundedStaleness consistency"
+  type        = number
+  default     = 100
+}
+
+variable "cosmosdb_max_interval_seconds" {
+  description = "Max staleness interval (seconds) for BoundedStaleness consistency"
+  type        = number
+  default     = 5
+}
+
+variable "cosmosdb_enable_partition_merge" {
+  description = "Enable partition merge on the Cosmos DB account"
+  type        = bool
+  default     = false
+}
+
+variable "cosmosdb_default_identity_type" {
+  description = "Default identity type for Cosmos DB system-assigned functions (FirstWriterWins, etc.)"
+  type        = string
+  default     = "FirstWriterWins"
+}
+
 variable "cosmosdb_geo_locations" {
   description = "Geo-replication locations for Cosmos DB"
   type = list(object({
@@ -212,6 +254,42 @@ variable "cosmosdb_memory_ttl_seconds" {
   description = "TTL in seconds for memory container items"
   type        = number
   default     = 86400
+}
+
+variable "cosmosdb_memory_container_name" {
+  description = "Cosmos DB container name for memory items"
+  type        = string
+  default     = "memory"
+}
+
+variable "cosmosdb_memory_partition_key_path" {
+  description = "Partition key path for the memory container"
+  type        = string
+  default     = "/sessionId"
+}
+
+variable "cosmosdb_memory_index_kind" {
+  description = "Index kind for the memory container (Hash, Range)"
+  type        = string
+  default     = "Hash"
+}
+
+variable "cosmosdb_chat_history_container_name" {
+  description = "Cosmos DB container name for chat history items"
+  type        = string
+  default     = "chatHistory"
+}
+
+variable "cosmosdb_chat_history_partition_key_path" {
+  description = "Partition key path for the chat history container"
+  type        = string
+  default     = "/sessionId"
+}
+
+variable "cosmosdb_chat_history_index_kind" {
+  description = "Index kind for the chat history container (Hash, Range)"
+  type        = string
+  default     = "Hash"
 }
 
 #--------------------------------------------------------------
@@ -389,6 +467,30 @@ variable "webapi_cors_origins" {
   default     = []
 }
 
+variable "webapp_nodejs_sku" {
+  description = "SKU for the Node.js WebApp (e.g. P1V2, P1v3)"
+  type        = string
+  default     = "P1v3"
+}
+
+variable "webapp_nodejs_linux_fx_version" {
+  description = "Linux FX version for the Node.js WebApp (e.g. NODE|20-lts)"
+  type        = string
+  default     = "NODE|20-lts"
+}
+
+variable "webapi_dotnet_sku" {
+  description = "SKU for the .NET WebAPI App Service (e.g. P1V2, P1v3)"
+  type        = string
+  default     = "P1v3"
+}
+
+variable "webapi_dotnet_linux_fx_version" {
+  description = "Linux FX version for the .NET WebAPI (e.g. DOTNETCORE|8.0)"
+  type        = string
+  default     = "DOTNETCORE|8.0"
+}
+
 #--------------------------------------------------------------
 # SignalR
 #--------------------------------------------------------------
@@ -540,4 +642,62 @@ variable "feature_flags" {
     enable_app_gateway = optional(bool, false)
   })
   default = {}
+}
+
+#--------------------------------------------------------------
+# Sovereignty Controls (Regulated/Compliant Deployments)
+#--------------------------------------------------------------
+# Multi-level toggle for sovereign/regulated compliance controls.
+# Enables granular enforcement of:
+#   - Private-only network access (no public endpoints)
+#   - Customer-managed key (CMK) encryption
+#   - Region-lock enforcement (data residency)
+#   - Managed identity-only authentication
+#
+# Usage in .tfvars:
+#   sovereignty_profile = {
+#     enabled              = true
+#     enforce_private_only = true
+#     enforce_cmk          = true
+#     enforce_region_lock  = true
+#     enforce_identity     = true
+#   }
+#--------------------------------------------------------------
+variable "sovereignty_profile" {
+  description = "Granular sovereignty/compliance control toggles for regulated deployments. Enables conditional enforcement without code duplication."
+  type = object({
+    enabled              = optional(bool, false)
+    enforce_private_only = optional(bool, false)
+    enforce_cmk          = optional(bool, false)
+    enforce_region_lock  = optional(bool, false)
+    enforce_identity     = optional(bool, false)
+  })
+  default = {}
+}
+
+variable "management_group_id" {
+  description = "Azure Management Group ID where sovereignty policies will be assigned (policy scope). Required when sovereignty_profile.enabled = true."
+  type        = string
+  default     = ""
+}
+
+variable "cmk_key_vault_id" {
+  description = "Key Vault ID for customer-managed encryption keys. Required when sovereignty_profile.enforce_cmk = true."
+  type        = string
+  default     = ""
+}
+
+variable "allowed_regions" {
+  description = "List of allowed Azure regions for sovereignty enforcement (data residency). Used when sovereignty_profile.enforce_region_lock = true."
+  type        = list(string)
+  default     = []
+}
+
+#--------------------------------------------------------------
+# Observability
+#--------------------------------------------------------------
+variable "log_analytics_workspace_name" {
+  description = "Name for the Log Analytics Workspace used for diagnostics and monitoring"
+  type        = string
+  default     = ""
 }
