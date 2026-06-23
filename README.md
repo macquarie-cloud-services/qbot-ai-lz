@@ -568,3 +568,159 @@ Outputs from disabled services return `null` and downstream `app_settings` entri
 - `Audit` — App Services must use HTTPS only
 - `DeployIfNotExists` — Diagnostic settings to Log Analytics on all AI services
 - `Require` — Tag enforcement (Environment, CostCenter, TechOwner)
+
+---
+
+## Sovereignty Controls
+
+The landing zone supports a **regulated/sovereign deployment mode** activated via the `sovereignty_profile` variable. It is entirely additive — the same codebase serves both standard and regulated customers through a single feature-flag object.
+
+### How It Works
+
+```
+sovereignty_profile = { enabled, enforce_private_only, enforce_cmk, enforce_region_lock, enforce_identity }
+        ↓
+module "sovereignty" { count = sovereignty_profile.enabled ? 1 : 0 }
+        ↓
+    ├── module "sovereignty_policies"        (always, when sovereignty enabled)
+    │       ├── Deny-Public-KV Policy        (enforce_private_only = true)
+    │       ├── Deny-Public-Storage Policy   (enforce_private_only = true)
+    │       ├── Allowed-Regions Policy       (enforce_region_lock = true)
+    │       └── Require-ManagedIdentity      (enforce_identity = true)
+    │
+    ├── module "sovereignty_network"         (enforce_private_only = true)
+    │       └── NSG micro-segmentation + private endpoint enforcement
+    │
+    ├── module "sovereignty_encryption"      (enforce_cmk = true)
+    │       └── CMK validation, key rotation policy, double encryption
+    │
+    └── module "sovereignty_identity"        (enforce_identity = true)
+                └── Managed identity enforcement, RBAC audit
+```
+
+Each sub-module instantiates only if its specific toggle is `true`. Disabling a control does not affect other controls.
+
+### Sovereignty Profile Variable
+
+```hcl
+sovereignty_profile = {
+  enabled              = true   # Master switch — false disables the entire module
+  enforce_private_only = true   # Deny public endpoints via Azure Policy; NSG micro-segmentation
+  enforce_cmk          = true   # Require customer-managed keys; deny service-managed encryption
+  enforce_region_lock  = true   # Restrict deployments to allowed_regions only
+  enforce_identity     = true   # Require managed identity authentication; deny shared keys
+}
+```
+
+| Toggle                | Controls Activated                                                                |
+|-----------------------|-----------------------------------------------------------------------------------|
+| `enforce_private_only`| Policy: deny public KV, deny public storage, deny public Cosmos DB; network NSG rules |
+| `enforce_cmk`         | Policy: require CMK on storage and Cosmos DB; encryption module with key rotation  |
+| `enforce_region_lock` | Policy: `Deny` on deployments outside `allowed_regions`                            |
+| `enforce_identity`    | Policy: require managed identity; identity module with RBAC audit                  |
+
+### Supporting Variables
+
+```hcl
+# Management Group scope for Policy assignments
+management_group_id = "/subscriptions/<id>"
+
+# Key Vault resource ID containing the customer-managed encryption key
+cmk_key_vault_id = "/subscriptions/<id>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<name>"
+
+# Data residency — list of permitted Azure regions
+allowed_regions = ["australiaeast"]
+```
+
+### Deploying a Sovereign Environment
+
+**Step 1 — Prerequisites**
+
+```bash
+# Create premium Key Vault with purge protection (required before first apply)
+az keyvault create \
+  --resource-group rg-aue-qbot-ai-sovereign \
+  --name kv-aue-qbot-sov \
+  --sku premium \
+  --enable-purge-protection true
+
+# Create the CMK
+az keyvault key create \
+  --vault-name kv-aue-qbot-sov \
+  --name encryption-key \
+  --kty RSA \
+  --size 2048
+```
+
+**Step 2 — Deploy**
+
+```bash
+cd landing-zones/ai
+terraform init -backend-config="key=lz-ai-sovereign-aue.tfstate"
+terraform plan  -var-file="sovereign-aue.tfvars"
+terraform apply -var-file="sovereign-aue.tfvars"
+```
+
+**Step 3 — Verify**
+
+```bash
+# Overall compliance posture
+terraform output sovereignty_status
+
+# Policy assignment status per control
+terraform output policies_assigned
+
+# Check Azure Policy compliance
+az policy state summarize \
+  --resource-group rg-aue-qbot-ai-sovereign \
+  --query "results.policyAssignments[].{policy:policyAssignmentId,compliant:results.nonCompliantResources}"
+```
+
+### Sovereign vs Standard Comparison
+
+| Capability                       | Standard (`dev-aue.tfvars`)        | Sovereign (`sovereign-aue.tfvars`)          |
+|----------------------------------|------------------------------------|---------------------------------------------|
+| Public endpoints                 | Allowed (configurable)             | Denied via Azure Policy                     |
+| Encryption                       | Service-managed keys               | Customer-managed keys (CMK), double encryption |
+| Deployment regions               | Any region                         | Locked to `allowed_regions`                 |
+| Authentication                   | Keys or managed identity           | Managed identity only (shared keys denied)  |
+| Cosmos DB consistency            | Session                            | BoundedStaleness (higher consistency)       |
+| Storage replication              | ZRS                                | GRS (geo-redundant)                         |
+| Key Vault SKU                    | Standard                           | Premium (HSM-backed, required for PE)       |
+| App Gateway WAF mode             | Detection                          | Prevention                                  |
+| Azure Policy assignments         | Audit only                         | Deny + audit via sovereignty module         |
+
+### Extending Sovereignty Controls
+
+New controls can be added to `modules/sovereignty/` without touching any landing zone or core module code:
+
+1. Add a new toggle to the `sovereignty_profile` object in `variables.tf`
+2. Create a sub-module under `modules/sovereignty/<control-name>/`
+3. Wire it with `count = var.sovereignty_profile.<new_toggle> ? 1 : 0` in `modules/sovereignty/main.tf`
+4. Expose status via `modules/sovereignty/outputs.tf`
+
+### Troubleshooting
+
+**`Insufficient Permissions` on policy assignment**
+
+The Terraform identity needs `Microsoft.Authorization/policyAssignments/write` at Management Group or subscription scope:
+```bash
+az role assignment create \
+  --assignee <terraform-sp-or-mi-object-id> \
+  --role "Policy Contributor" \
+  --scope /subscriptions/<spoke-subscription-id>
+```
+
+**`Forbidden: Public Network Access Disabled` on CMK Key Vault**
+
+The CMK Key Vault blocks Terraform data-plane access when `enforce_private_only = true` and the runner is not on the private network. Temporarily re-enable public access for the apply, then disable it afterwards:
+```bash
+az keyvault update --name kv-aue-qbot-sov --public-network-access Enabled
+terraform apply -var-file="sovereign-aue.tfvars"
+az keyvault update --name kv-aue-qbot-sov --public-network-access Disabled
+```
+
+**`store_signalr_secret_in_key_vault` fails from non-private runner**
+
+Set `store_signalr_secret_in_key_vault = false` in `sovereign-aue.tfvars` when the Terraform runner cannot reach the Key Vault data plane. The SignalR connection string will not be written to Key Vault automatically; inject it via a separate secrets pipeline after apply.
+
