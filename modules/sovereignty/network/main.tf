@@ -17,5 +17,6 @@
 
 output "network_security_status" {
   description = "Sovereignty network security enforcement status"
-  value       = "Enabled - Private-only enforcement active"
+  value       = "Placeholder - network enforcement not yet implemented"
+#  value       = "Enabled - Private-only enforcement active"
 }

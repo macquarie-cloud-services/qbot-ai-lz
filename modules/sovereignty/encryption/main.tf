@@ -18,5 +18,6 @@
 
 output "encryption_enforcement_status" {
   description = "Sovereignty encryption enforcement status"
-  value       = "Enabled - CMK enforcement active on ${var.cmk_key_vault_id}"
+  value       = "Placeholder - CMK enforcement not yet implemented"
+#  value       = "Enabled - CMK enforcement active on ${var.cmk_key_vault_id}"
 }

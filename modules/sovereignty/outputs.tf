@@ -4,12 +4,14 @@
 
 output "policies_assigned" {
   description = "Azure Policy assignments enforcing sovereignty controls"
-  value = {
-    deny_public_keyvault    = var.sovereignty_profile.enforce_private_only ? "Assigned" : "Skipped"
-    deny_public_storage     = var.sovereignty_profile.enforce_private_only ? "Assigned" : "Skipped"
-    deny_public_cosmosdb    = var.sovereignty_profile.enforce_private_only ? "Assigned" : "Skipped"
-    require_cmk_storage     = var.sovereignty_profile.enforce_cmk ? "Assigned" : "Skipped"
-    allowed_regions         = var.sovereignty_profile.enforce_region_lock ? "Assigned" : "Skipped"
+  value = { 
+    deny_public_keyvault     = var.sovereignty_profile.enforce_private_only ? "Assigned" : "Skipped"
+    deny_public_storage      = var.sovereignty_profile.enforce_private_only ? "Assigned" : "Skipped"
+    # deny_public_cosmosdb    = var.sovereignty_profile.enforce_private_only ? "Assigned" : "Skipped"
+    # require_cmk_storage     = var.sovereignty_profile.enforce_cmk ? "Assigned" : "Skipped" 
+    deny_public_cosmosdb     = "NotImplemented"
+    require_cmk_storage      = "NotImplemented"
+    allowed_regions          = (var.sovereignty_profile.enforce_region_lock && length(var.allowed_regions) > 0) ? "Assigned" : "Skipped"
     require_managed_identity = var.sovereignty_profile.enforce_identity ? "Assigned" : "Skipped"
   }
 }

@@ -19,5 +19,6 @@
 
 output "identity_enforcement_status" {
   description = "Sovereignty identity enforcement status"
-  value       = "Enabled - Managed identity-only enforcement active"
+  value       = "Placeholder - identity enforcement not yet implemented"
+#  value       = "Enabled - Managed identity-only enforcement active"
 }

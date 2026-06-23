@@ -112,10 +112,10 @@ Each sub-module (policies, network, encryption, identity) will only instantiate 
 
 **Fix:**
 ```bash
-# Assign Policy Contributor role at MG level
+# Assign Policy Contributor role at MG/Subscription level
 az role assignment create \
   --assignee $USER_ID \
-  --role "Policy Insights Data Writer (Preview)" \
+  --role "Policy Contributor" \
   --scope /subscriptions/YOUR_SUB_ID
 ```
 
