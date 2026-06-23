@@ -1,15 +1,12 @@
-#--------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------------
 # Sovereignty Landing Zone Pattern
 #
-# Comprehensive guide to implementing sovereign/regulated compliance
-# controls on top of the qbot-ai-lz landing zone codebase.
-#--------------------------------------------------------------
+# Comprehensive guide to implementing sovereign/regulated compliance controls on top of the qbot-ai-lz landing zone codebase.
+#-----------------------------------------------------------------------------------------------------------------------------
 
 ## Overview
 
 The **Sovereignty Landing Zone Pattern** enables a **single reusable codebase** to support both regulated (sovereign) and non-regulated customer deployments without code duplication. Using **feature flags** and a dedicated `sovereignty` module, you can toggle granular compliance controls on-demand.
-
-**Key Principle:** One codebase, unlimited compliance postures.
 
 ---
 
@@ -398,8 +395,7 @@ To add new sovereignty controls (e.g., require service-to-service encryption):
 | **Zero Duplication** | Feature flags + conditional modules eliminate code copying |
 | **Compliance Speed** | Toggle sovereign controls instantly without re-architecture |
 | **Auditability** | All policies tracked in source control; audit trail via Azure Policy |
-| **Scalability** | Add new compliance dimensions (encrypt in-transit, data exfiltration controls, etc.) without core module changes |
-| **Customer Value** | Enterprise customers get compliance-grade controls; SMBs get standard deployments — same codebase |
+| **Scalability** | Add new compliance dimensions (encrypt in-transit, data exfiltration controls, etc.) without core module changes
 
 ---
 
