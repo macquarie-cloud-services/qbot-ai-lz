@@ -16,17 +16,17 @@ output "policies_assigned" {
 
 output "network_enforcement" {
   description = "Network-layer sovereignty enforcement status"
-  value       = var.sovereignty_profile.enforce_private_only ? module.sovereignty_network[0].network_security_status : null
+  value       = (local.sovereignty_enabled && var.sovereignty_profile.enforce_private_only) ? module.sovereignty_network[0].network_security_status : null
 }
 
 output "encryption_enforcement" {
   description = "Encryption-layer sovereignty enforcement status"
-  value       = var.sovereignty_profile.enforce_cmk ? module.sovereignty_encryption[0].encryption_enforcement_status : null
+  value       = (local.sovereignty_enabled && var.sovereignty_profile.enforce_cmk) ? module.sovereignty_encryption[0].encryption_enforcement_status : null
 }
 
 output "identity_enforcement" {
   description = "Identity-layer sovereignty enforcement status"
-  value       = var.sovereignty_profile.enforce_identity ? module.sovereignty_identity[0].identity_enforcement_status : null
+  value       = (local.sovereignty_enabled && var.sovereignty_profile.enforce_identity) ? module.sovereignty_identity[0].identity_enforcement_status : null
 }
 
 output "sovereignty_status" {
