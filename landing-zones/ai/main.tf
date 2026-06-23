@@ -380,3 +380,37 @@ module "app_gateway" {
 
   depends_on = [module.app_services]
 }
+
+#--------------------------------------------------------------
+# Sovereignty Module (Regulated/Compliant Deployments)
+#
+# Conditionally enforces sovereign/regulated compliance controls:
+#   - Private-only network access (deny public endpoints)
+#   - Customer-managed key (CMK) encryption
+#   - Region-lock enforcement (data residency)
+#   - Managed identity-only authentication
+#
+# Toggle the sovereignty_profile variable in .tfvars to enable:
+#
+#   sovereignty_profile = {
+#     enabled              = true
+#     enforce_private_only = true
+#     enforce_cmk          = true
+#     enforce_region_lock  = true
+#     enforce_identity     = true
+#   }
+#--------------------------------------------------------------
+module "sovereignty" {
+  source = "../../modules/sovereignty"
+
+  count = var.sovereignty_profile.enabled ? 1 : 0
+
+  location             = var.location
+  environment          = var.environment
+  resource_group_id    = module.resource_group.resource_id
+  management_group_id  = var.management_group_id
+  cmk_key_vault_id     = var.cmk_key_vault_id
+  allowed_regions      = var.allowed_regions
+  sovereignty_profile  = var.sovereignty_profile
+  tags                 = local.common_tags
+}
