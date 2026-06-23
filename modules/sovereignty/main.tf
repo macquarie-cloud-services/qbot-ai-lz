@@ -13,6 +13,26 @@ locals {
     ManagedBy   = "Terraform-Sovereignty-Module"
   })
 }
+check "sovereignty_management_group_required" {
+  assert {
+    condition     = !local.sovereignty_enabled || length(trim(var.management_group_id)) > 0
+    error_message = "management_group_id must be set when sovereignty_profile.enabled = true."
+  }
+}
+
+check "sovereignty_cmk_key_vault_required" {
+  assert {
+    condition     = !(local.sovereignty_enabled && var.sovereignty_profile.enforce_cmk) || length(trim(var.cmk_key_vault_id)) > 0
+    error_message = "cmk_key_vault_id must be set when sovereignty_profile.enforce_cmk = true."
+  }
+}
+
+check "sovereignty_allowed_regions_required" {
+  assert {
+    condition     = !(local.sovereignty_enabled && var.sovereignty_profile.enforce_region_lock) || length(var.allowed_regions) > 0
+    error_message = "allowed_regions must be non-empty when sovereignty_profile.enforce_region_lock = true."
+  }
+}
 
 #--------------------------------------------------------------
 # Sovereignty Policies (Azure Policy assignments for compliance)
